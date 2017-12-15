@@ -16,7 +16,7 @@ class Config(UserDict):
     :param default: an optional dictionary of default values."""
 
     def __init__(self, default=None):
-        slef.data = {}
+        self.data = {}
         if default is not None:
             try:
                 self.update(default)
@@ -73,9 +73,8 @@ class Config(UserDict):
             if key.isupper():
                 self.data[key] = getattr(obj, key)
 
-
-
-
+    def __setitem__(self, key, value):
+        self.data[str(key)] = value
 
 
 
