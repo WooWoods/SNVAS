@@ -65,6 +65,14 @@ class ChiSquare:
                   ndarray object or others. It can be provided solely.
                   e.g. [[100, 97],
                         [84, 127]]
+                  mostly this dataset will be a staced pd.series object,
+                  e.g.
+                  group    gender
+                  case     1.0       168
+                           2.0        88
+                  control  1.0        28
+                           2.0        26
+                  dtype: int64
     """
 
     def __init__(self, filename=None, dataset=None, items=None):
@@ -77,7 +85,7 @@ class ChiSquare:
         if self.filename is not None:
             if items is None:
                 raise('Loss varibles to be analysised. Please refer to the __doc__.')
-            table = pd.read_table(self.filename, header=0, indel_col=None, sep='\t')
+            table = pd.read_table(self.filename, header=0, index_col=0, sep='\t')
             header = table.columns
             if not contain_item(header, items) and re.search(r'\d', str(items)):
                 try:
@@ -90,15 +98,16 @@ class ChiSquare:
     def calculator(self):
         chi, p, dof, expected = chi2_contingency(self.dataset)
         OR, L95, U95 = odd_ratio(self.dataset)
-        return g, p, OR, L95, U95
+        return chi, p, OR, L95, U95
 
     def put_down(self, path, var):
         filename = os.path.join(path, '%s_chi.txt' % var)
         result = self.calculator()
         with open(filename ,'wt') as fh:
             fh.write('Chi-score\tp-value\tOR\tL95\tU95\n')
-            fh.write('\t'.join(self.result) + '\n')
+            fh.write('\t'.join(map(lambda x: str(x), result)) + '\n')
             fh.write(str(self.dataset))
+        return result
 
 def contain_item(header, items):
     h = set(header)
@@ -107,9 +116,10 @@ def contain_item(header, items):
 
 def odd_ratio(dataset):
     try:
-        OR = dataset[0][0] * dataset[1][1] / (dataset[0][1] * dataset[1][0])
+        darray = np.array(dataset).reshape(2,2)
+        OR = darray[0][0] * darray[1][1] / (darray[0][1] * darray[1][0])
         L = np.log(OR)
-        SE = np.sqrt(sum(1/dataset))
+        SE = np.sqrt(sum(1/darray.reshape(4,1)))[0]
         L95 = np.exp(L - 1.96 * SE)
         U95 = np.exp(L + 1.96 * SE)
         return OR, L95, U95
@@ -140,7 +150,7 @@ class Ttest:
             if self.groupby is None or self.var is None:
                 raise('`group` and `variable` info not clear,\
                         please refer to the __doc__ for details.')
-            table = pd.read_table(self.filename, header=0, indel_col=None, sep='\t')
+            table = pd.read_table(self.filename, header=0, index_col=0, sep='\t')
             header = table.columns
             if contain_item(header, [self.groupby, self.var]):
                 self.groupby = header.index(self.groupby)
@@ -153,8 +163,8 @@ class Ttest:
             if len(groupinfo) > 2:
                 raise('`group` not binomial variable.')
 
-            self.vector_one = table.iloc[:, self.var][table.iloc[:, self.groupby] == groupinfo[0]].values
-            self.vector_two = table.iloc[:, self.var][table.iloc[:, self.groupby] == groupinfo[1]].values
+            self.vector_one = table.iloc[:, self.var][table.iloc[:, self.var].notnull()][table.iloc[:, self.groupby] == groupinfo[0]].values
+            self.vector_two = table.iloc[:, self.var][table.iloc[:, self.var].notnull()][table.iloc[:, self.groupby] == groupinfo[1]].values
         else:
             if not all([self.vector_one, self.vector_two]):
                 raise('No effective data input.')
@@ -180,15 +190,16 @@ class Ttest:
             summary_one = self.summary(self.vector_one)
             summary_two = self.summary(self.vector_two)
             if self.groupinfo:
-                summary_one['name'] = groupinfo[0]
-                summary_two['name'] = groupinfo[1]
+                summary_one['name'] = self.groupinfo[0]
+                summary_two['name'] = self.groupinfo[1]
             else:
                 summary_one['name'] = 'group 1'
                 summary_two['name'] = 'group 2'
-            fh.write(fmt.format(summary_one))
-            fh.write(fmt.format(summary_two))
+            fh.write(fmt.format_map(summary_one))
+            fh.write(fmt.format_map(summary_two))
             fh.write('t\t%s' % t_score)
             fh.write('p\t%s' % p)
+        return t_score, p, summary_one, summary_two
 
 
 def median(array):

@@ -16,7 +16,7 @@ import xlsxwriter
 import patsy
 from collections import defaultdict, UserDict
 
-from ..utils import dir_check, file_check, parse_column, formater_type
+from ..utils import dir_check, file_check, parse_column, formater_type, print_readme
 from ..mathematics import LogitRegression
 from ..xlsx_formater import Formater
 from .block_read import BlockIdentifier
@@ -37,6 +37,7 @@ class SplitPed:
     def __init__(self, assoc_inst):
         self.config = assoc_inst.config
         self.path = self.config.get('ROUTINE', None)
+        self.basepath = self.config.get('basepath', None)
         self.hapfile = self.config.get('RAW_HAP', None) or \
                 os.path.join(self.path, 'data/raw_hap.txt')
         self.tmpdir = self.config.get('TMPDIR', None)\
@@ -245,6 +246,10 @@ class HapAssocAnalysis:
         sheet_hap = workbook.add_worksheet('haplotype')
         sheet_hap.set_row(0, 30)
         self.sampleshap_to_excel(sheet_hap, formater)
+        sheet_readme = workbook.add_worksheet('ReadMe')
+        readmefile = os.path.join(self.basepath, 'ReadMetxt/readme_hap.txt')
+        print_readme(sheet_readme, readmefile, formater)
+
         header = ('Hap', 'CHR', 'SNPS', 'HAPLOTYPE', 'case_F', 'control_F', 'OR', '95%CI', 'P-value')
         row = 0
         for i, j in enumerate(header):
@@ -269,6 +274,10 @@ class HapAssocAnalysis:
             sheet_hap = workbook.add_worksheet('haplotype')
             sheet_hap.set_row(0, 30)
             self.sampleshap_to_excel(sheet_hap, formater)
+            sheet_readme = workbook.add_worksheet('ReadMe')
+            readmefile = os.path.join(self.basepath, 'ReadMetxt/readme_hap.txt')
+            print_readme(sheet_readme, readmefile, formater)
+
             row = 0
             for i, j in enumerate(header):
                 sheet.write(row, i, j, formater.header)

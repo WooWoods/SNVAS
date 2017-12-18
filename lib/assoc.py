@@ -17,6 +17,7 @@ from .utils import dir_check, file_check
 default_config = {
         'PLINK':  '/home/wuj/bin/software/plink_1.90_beta/plink',
         'annovar': '/home/pub/software/annovar/annotate_variation.pl',
+        'basepath': os.path.abspath(os.path.dirname(__file__)),
         }
 
 
@@ -40,7 +41,7 @@ class AssocStudy:
         self.hwe()
         self.freq()
         self.freqcc()
-        #self.annotation()
+        self.annotation()
         self.chitest()
         self.modelchi()
         self.logistic()
@@ -146,8 +147,8 @@ class AssocStudy:
         dir_check(outdir)
         outname = os.path.join(outdir, 'logistic')
 
-        covar_file = self.config.get('COVAR', None)
-        pheno_file = self.config.get('PHENO', None)
+        covar_file = self.config.get('COVARFILE', None)
+        pheno_file = self.config.get('PHENOFILE', None)
 
         covar = None
         pheno = None

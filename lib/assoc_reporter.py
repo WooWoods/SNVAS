@@ -10,7 +10,7 @@ import re
 
 import xlsxwriter
 import numpy as np
-from .utils import file_check, dir_check, formater_type
+from .utils import file_check, dir_check, formater_type, print_readme
 from .xlsx_formater import Formater
 
 
@@ -218,6 +218,7 @@ class ChiBlockHandler:
 
 class HweReporter:
     def __init__(self, assoc_inst):
+        self.basepath = assoc_inst.config.get('basepath')
         self.reportdir = os.path.join(assoc_inst.config.get('ROUTINE'), 'report')
         dir_check(self.reportdir)
         self.resultdir = os.path.join(assoc_inst.config.get('ROUTINE'), 'result')
@@ -228,6 +229,9 @@ class HweReporter:
         formater = Formater(workbook)
         sheet = workbook.add_worksheet('HWE')
         sheet.set_row(0, 30)
+        sheet_readme = workbook.add_worksheet('ReadMe')
+        readmefile = os.path.join(self.basepath, 'ReadMetxt/readme_hwe.txt')
+        print_readme(sheet_readme, readmefile, formater)
 
         self.record_hwe_result()
         self.record_maf()
@@ -383,6 +387,7 @@ class HweHandler:
 
 class ChiReporter:
     def __init__(self, assoc_inst):
+        self.basepath = assoc_inst.config.get('basepath')
         self.reportdir = os.path.join(assoc_inst.config.get('ROUTINE'), 'report')
         dir_check(self.reportdir)
         self.resultdir = os.path.join(assoc_inst.config.get('ROUTINE'), 'result')
@@ -393,6 +398,9 @@ class ChiReporter:
         formater = Formater(workbook)
         sheet = workbook.add_worksheet('ALL')
         sheet.set_row(0, 30)
+        sheet_readme = workbook.add_worksheet('ReadMe')
+        readmefile = os.path.join(self.basepath, 'ReadMetxt/readme_chi.txt')
+        print_readme(sheet_readme, readmefile, formater)
 
         self.record_model_result()
         self.record_assoc_result()
@@ -497,6 +505,7 @@ class ChiHandler:
 
 class LogitReporter:
     def __init__(self, assoc_inst, covar=False):
+        self.basepath = assoc_inst.config.get('basepath')
         self.reportdir = os.path.join(assoc_inst.config.get('ROUTINE'), 'report')
         dir_check(self.reportdir)
         self.resultdir = os.path.join(assoc_inst.config.get('ROUTINE'), 'result/logistic-test')
@@ -514,6 +523,9 @@ class LogitReporter:
         formater = Formater(workbook)
         sheet = workbook.add_worksheet('ALL')
         sheet.set_row(0, 30)
+        sheet_readme = workbook.add_worksheet('ReadMe')
+        readmefile = os.path.join(self.basepath, 'ReadMetxt/readme_logit.txt')
+        print_readme(sheet_readme, readmefile, formater)
 
         header = 'SNP,CHR,BP,Alt Allele,Model,NMISS,OR,SE,L95,U95,STAT,P-value,FDR_BH adjusted'.split(',')
         row = 0

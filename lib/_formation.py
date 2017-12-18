@@ -153,7 +153,7 @@ class Formater:
             covar = table.iloc[:, cols]
             covar.insert(0, 'IID', table.index)
             covar.apply(self.convert_dtype).to_csv(filename, header=False, index=True, sep='\t')
-            self.config['COVAR'] = filename
+            self.config['COVARFILE'] = filename
 
     def to_pheno(self, table):
         filename = os.path.join(self.tmpdir, 'pheno.txt')
@@ -162,7 +162,7 @@ class Formater:
             covar = table.iloc[:, cols]
             covar.insert(0, 'IID', table.index)
             covar.apply(self.convert_dtype).to_csv(filename, header=False, index=True, sep='\t')
-            self.config['PHENO'] = filename
+            self.config['PHENOFILE'] = filename
 
     @staticmethod
     def convert_dtype(x):
