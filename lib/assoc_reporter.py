@@ -319,35 +319,44 @@ class HweReporter:
         fgeneanno = os.path.join(self.resultdir, 'hwe/library.variant_function')
         fmrnaanno = os.path.join(self.resultdir, 'hwe/library.exonic_variant_function')
 
-        with open(f1000g, 'rt') as fh:
-            for line in fh:
-                arr = line.strip().split()
-                if arr[-1] in self.info_container:
-                    handler = self.info_container.get(arr[-1])
-                else:
-                    continue
-                handler.g1000 = arr[1]
-                handler.pos = arr[3]
-        with open(fgeneanno, 'rt') as fh:
-            for line in fh:
-                arr = line.strip().split()
-                if arr[-1] in self.info_container:
-                    handler = self.info_container.get(arr[-1])
-                else:
-                    continue
-                handler.region = arr[0]
-                gene = re.match(r'^(\w+)', arr[1]).group(1)
-                handler.gene = gene
-        with open(fmrnaanno, 'rt') as fh:
-            for line in fh:
-                arr = line.strip().split('\t')
-                if arr[-1] in self.info_container:
-                    handler = self.info_container.get(arr[-1])
-                else:
-                    continue
-                mrnainfo = re.split(r'[:,]', arr[2])
-                mrnas = list(filter(lambda x: re.match(r'^NM', x), mrnainfo))
-                handler.mrna = ','.join(mrnas)
+        try:
+            with open(f1000g, 'rt') as fh:
+                for line in fh:
+                    arr = line.strip().split()
+                    if arr[-1] in self.info_container:
+                        handler = self.info_container.get(arr[-1])
+                    else:
+                        continue
+                    handler.g1000 = arr[1]
+                    handler.pos = arr[3]
+        except FileNotFoundError:
+            pass
+        try:
+            with open(fgeneanno, 'rt') as fh:
+                for line in fh:
+                    arr = line.strip().split()
+                    if arr[-1] in self.info_container:
+                        handler = self.info_container.get(arr[-1])
+                    else:
+                        continue
+                    handler.region = arr[0]
+                    gene = re.match(r'^(\w+)', arr[1]).group(1)
+                    handler.gene = gene
+        except FileNotFoundError:
+            pass
+        try:
+            with open(fmrnaanno, 'rt') as fh:
+                for line in fh:
+                    arr = line.strip().split('\t')
+                    if arr[-1] in self.info_container:
+                        handler = self.info_container.get(arr[-1])
+                    else:
+                        continue
+                    mrnainfo = re.split(r'[:,]', arr[2])
+                    mrnas = list(filter(lambda x: re.match(r'^NM', x), mrnainfo))
+                    handler.mrna = ','.join(mrnas)
+        except FileNotFoundError:
+            pass
 
 
 
@@ -522,7 +531,7 @@ class LogitReporter:
         if self.report_covar:
             self.resultdir = os.path.join(assoc_inst.config.get('ROUTINE'), 'result/logistic-test/logit_covar')
 
-    def report(self, workbook, readmefile):
+    def report(self):
         self.iter_models()
         if self.report_covar:
             workbook = xlsxwriter.Workbook(os.path.join(self.reportdir, 'Logistic_CORRECT.xlsx'))
@@ -560,35 +569,41 @@ class LogitReporter:
 
     def record_logit_result(self, filename, mark):
         adjusted = filename + '.adjusted'
-        with open(filename, 'rt') as fh:
-            for line in fh:
-                arr = line.split()
-                snp = arr[1]
-                if arr[4] in ('ADD', 'DOM', 'REC', 'HOM', 'HET'):
-                    if snp in self.info_container:
-                        handler = self.info_container.get(snp)
-                    else:
-                        handler = LogitHandler(snp)
-                        self.info_container[snp] = handler
-                    handler.Chr = arr[0]
-                    handler.pos = arr[2]
-                    handler.Minorallele = arr[3]
-                    handler.add_info(arr)
+        try:
+            with open(filename, 'rt') as fh:
+                for line in fh:
+                    arr = line.split()
+                    snp = arr[1]
+                    if arr[4] in ('ADD', 'DOM', 'REC', 'HOM', 'HET'):
+                        if snp in self.info_container:
+                            handler = self.info_container.get(snp)
+                        else:
+                            handler = LogitHandler(snp)
+                            self.info_container[snp] = handler
+                        handler.Chr = arr[0]
+                        handler.pos = arr[2]
+                        handler.Minorallele = arr[3]
+                        handler.add_info(arr)
+        except FileNotFoundError:
+            pass
 
         count = 0
-        with open(adjusted, 'rt') as fh:
-            for line in fh:
-                count += 1
-                if count == 1:
-                    continue
-                arr = line.split()
-                snp = arr[1]
-                handler = self.info_container.get(snp)
-                if mark == 'HETHOM':
-                    handler.data.get('HET').__setitem__('fdr', arr[-2])
-                    handler.data.get('HOM').__setitem__('fdr', arr[-2])
-                else:
-                    handler.data.get(mark).__setitem__('fdr', arr[-2])
+        try:
+            with open(adjusted, 'rt') as fh:
+                for line in fh:
+                    count += 1
+                    if count == 1:
+                        continue
+                    arr = line.split()
+                    snp = arr[1]
+                    handler = self.info_container.get(snp)
+                    if mark == 'HETHOM':
+                        handler.data.get('HET').__setitem__('fdr', arr[-2])
+                        handler.data.get('HOM').__setitem__('fdr', arr[-2])
+                    else:
+                        handler.data.get(mark).__setitem__('fdr', arr[-2])
+        except FileNotFoundError:
+            pass
 
 
 class LogitHandler:
@@ -622,7 +637,7 @@ class LogitHandler:
 
 
 class PhenoLogitReporter(LogitReporter):
-    def __init__(self, assoc_inst, covar):
+    def __init__(self, assoc_inst, covar=False):
         self.basepath = assoc_inst.config.get('basepath')
         self.reportdir = os.path.join(assoc_inst.config.get('ROUTINE'), 'report')
         dir_check(self.reportdir)
@@ -633,6 +648,7 @@ class PhenoLogitReporter(LogitReporter):
             self.resultdir = os.path.join(assoc_inst.config.get('ROUTINE'), 'result/logistic-test/phenoassoc_covar')
 
     def report(self):
+        self.iter_models()
         readmefile = os.path.join(self.basepath, 'ReadMetxt/readme_phenologit.txt')
         if self.report_covar:
             workbook = xlsxwriter.Workbook(os.path.join(self.reportdir, 'PhenoLogistic_CORRECT.xlsx'))
@@ -665,7 +681,7 @@ class PhenoLogitReporter(LogitReporter):
     def iter_models(self):
         import glob
         models_mark = dict([('dominant', 'DOM'), ('recessive', 'REC'), ('add', 'ADD'), ('hethom', 'HETHOM')])
-        for filename in glob.glob('%s/*linear'):
+        for filename in glob.glob('%s/*linear' % self.resultdir):
             self.record_logit_result(filename, models_mark)
 
     def record_logit_result(self, filename, models_mark):
@@ -673,36 +689,43 @@ class PhenoLogitReporter(LogitReporter):
         basename_info = os.path.basename(filename).split('.')
         pheno_name = basename_info[1]
         model = basename_info[0].split('_')[1]
+        mark = models_mark.get(model)
 
-        with open(filename, 'rt') as fh:
-            for line in fh:
-                arr = line.split()
-                pheno_snp = '-'.join([pheno_name, arr[1]])
-                if arr[4] in ('ADD', 'DOM', 'REC', 'HOM', 'HET'):
-                    if pheno_snp in self.info_container:
-                        handler = self.info_container.get(pheno_snp)
-                    else:
-                        handler = LogitHandler(pheno_snp)
-                        self.info_container[pheno_snp] = handler
+        try:
+            with open(filename, 'rt') as fh:
+                for line in fh:
+                    arr = line.split()
+                    pheno_snp = '-'.join([pheno_name, arr[1]])
+                    if arr[4] in ('ADD', 'DOM', 'REC', 'HOM', 'HET'):
+                        if pheno_snp in self.info_container:
+                            handler = self.info_container.get(pheno_snp)
+                        else:
+                            handler = LogitHandler(pheno_snp)
+                            self.info_container[pheno_snp] = handler
                         handler.Chr = arr[0]
                         handler.pos = arr[2]
                         handler.Minorallele = arr[3]
                         handler.add_info(arr)
+        except FileNotFoundError:
+            pass
 
         count = 0
-        with open(adjusted, 'rt') as fh:
-            for line in fh:
-                count += 1
-                if count == 1:
-                    continue
-                arr = line.split()
-                pheno_snp = '-'.join([pheno_name, arr[1]])
-                handler = self.info_container.get(pheno_snp)
-                if mark == 'HETHOM':
-                    handler.data.get('HET').__setitem__('fdr', arr[-2])
-                    handler.data.get('HOM').__setitem__('fdr', arr[-2])
-                else:
-                    handler.data.get(mark).__setitem__('fdr', arr[-2])
+        try:
+            with open(adjusted, 'rt') as fh:
+                for line in fh:
+                    count += 1
+                    if count == 1:
+                        continue
+                    arr = line.split()
+                    pheno_snp = '-'.join([pheno_name, arr[1]])
+                    handler = self.info_container.get(pheno_snp)
+                    if mark == 'HETHOM':
+                        handler.data.get('HET').__setitem__('fdr', arr[-2])
+                        handler.data.get('HOM').__setitem__('fdr', arr[-2])
+                    else:
+                        handler.data.get(mark).__setitem__('fdr', arr[-2])
+        except FileNotFoundError:
+            pass
 
 
 

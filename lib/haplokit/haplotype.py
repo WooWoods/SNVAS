@@ -194,6 +194,7 @@ class HapAssocAnalysis:
         self.config = assoc_inst.config
         self.plink = '/home/wuj/.local/bin/plink'
         self.path = self.config.get('ROUTINE', None)
+        self.basepath = self.config.get('basepath')
         self.resultdir = os.path.join(self.path, 'result/haplotype')
         self.reportdir = os.path.join(self.path, 'report')
         dir_check(self.resultdir)

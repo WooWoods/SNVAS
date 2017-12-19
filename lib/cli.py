@@ -8,7 +8,7 @@
 import os
 import argparse
 
-from . import AssocStudy, Formater, MdrOperate, hap_analysis, reporter, PhenoIndepTest
+from . import AssocStudy, Formater, MdrOperate, hap_analysis, reporter, PhenoIndepTest, Stratify
 
 
 AP = argparse.ArgumentParser(
@@ -118,6 +118,23 @@ def _pheno_stage(args):
 P_pheno = AP_subparsers.add_parser('pheno', help=_pheno_stage.__doc__)
 P_pheno.add_argument('-cfg', metavar='config file',required=True)
 P_pheno.set_defaults(func=_pheno_stage)
+
+##########################################################################
+### PhenoTest
+##########################################################################
+
+def _stratify(args):
+    """Preparing stratification project by `STRATIFY` information
+    provided in the config.ini file.
+    """
+    curr_case = AssocStudy(args.cfg)
+    stratification = Stratify(curr_case)
+    stratification.go()
+
+P_strati = AP_subparsers.add_parser('strati', help=_stratify.__doc__)
+P_strati.add_argument('-cfg', metavar='config file',required=True)
+P_strati.set_defaults(func=_stratify)
+
 
 ##########################################################################
 ### Shim for command-line execution
