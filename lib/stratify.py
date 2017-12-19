@@ -14,6 +14,14 @@ from .utils import dir_check, parse_column
 
 
 class Stratify:
+    """Class for stratification, it just prepare the files that needed by
+    main program according to information provided by user. After this
+    process, user may get a series of sub-projects which may meet expectatioin
+    of user, and the user need to check these sub-projects and run main program
+    mannuly.
+
+    :param assoc_inst: an instance of AssocStudy
+    """
     def __init__(self, assoc_inst):
         self.config = assoc_inst.config
         self.root_path = self.config.get('ROUTINE', '')
@@ -60,7 +68,11 @@ class Stratify:
                 self.sample_by_combinate(combinate, col, n)
 
     def strati_groups(self, group):
-        """decide stratification groups by cols provided by user."""
+        """decide stratification groups by cols and n provided by user.
+
+        :param group: a tuple like (2, 1), in which 2 means cols in sample.info used
+                      for stratification, 1 means n for combinations.
+        """
         col, n = group
         col -= 1
         col_name = self.info_names[col]
@@ -72,6 +84,16 @@ class Stratify:
         return combinates, col, n
 
     def sample_by_combinate(self, combinate, strati_col, n):
+        """Extracting samples from sample.info according to combinate.
+
+        :param combinate: combination of values of strati_col.
+        :param strati_col: viaing which column to stratifying.
+                e.g.
+                  stratify by strati_col=2, which comes to be gender,
+                  and n=1, that means stratifying by male or female,
+                  combinate could be
+                  (1, ) or (2, )
+        """
         col_name = self.info_names[strati_col]
         if n == 1:
             dirname = col_name + '_' + str(combinate[0])
@@ -109,7 +131,16 @@ PHENO = {pheno}
 CHI_TEST = {chi}
 TTEST = {ttest}
         """
-        tmpdict = dict(rootpath=root_path, genofile=fgeno, infofile=finfo, snpfile=fsnp, hapfile='', gender=self.gender_col, covar=self.cov_num, pheno=self.pheno_num, chi=self.chi_test, ttest=self.ttest)
+        tmpdict = dict(rootpath=root_path,
+                genofile=fgeno,
+                infofile=finfo,
+                snpfile=fsnp,
+                hapfile='',
+                gender=self.gender_col,
+                covar=self.cov_num,
+                pheno=self.pheno_num,
+                chi=self.chi_test,
+                ttest=self.ttest)
         filename = os.path.join(root_path, 'config.ini')
         with open(filename, 'wt') as fh:
             fh.write(config_model.format_map(tmpdict))
