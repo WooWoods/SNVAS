@@ -9,6 +9,7 @@ import os
 import re
 
 import xlsxwriter
+from collections import defaultdict
 import numpy as np
 from .utils import file_check, dir_check, formater_type, print_readme
 from .xlsx_formater import Formater
@@ -17,17 +18,24 @@ from .xlsx_formater import Formater
 def reporter(assoc_inst):
     hwe_reporter = HweReporter(assoc_inst)
     hwe_reporter.report()
-    #chi_reporter = ChiReporter(assoc_inst)
-    #chisq_info_container = chi_reporter.report()
-    #logit_reporter = LogitReporter(assoc_inst)
-    #logit_info_container = logit_reporter.report()
-    #logit_covar_info_container = None
-    #if assoc_inst.config.get('CORRECTION', None) is not None:
-    #    covar = True
-    #    logit_covar_reporter = LogitReporter(assoc_inst, covar)
-    #    logit_covar_info_container = logit_covar_reporter.report()
-    #all_reporter = AllReport(assoc_inst, chisq_info_container, logit_info_container, covar, logit_covar_info_container)
-    #all_reporter.report()
+    chi_reporter = ChiReporter(assoc_inst)
+    chisq_info_container = chi_reporter.report()
+    logit_reporter = LogitReporter(assoc_inst)
+    logit_info_container = logit_reporter.report()
+    logit_covar_info_container = None
+    if assoc_inst.config.get('CORRECTION', None) is not None:
+        covar = True
+        logit_covar_reporter = LogitReporter(assoc_inst, covar)
+        logit_covar_info_container = logit_covar_reporter.report()
+        if assoc_inst.config.get('PHENO', None) is not None:
+            logit_pheno_covar_reporter = PhenoLogitReporter(assoc_inst, covar)
+            logit_pheno_covar_info_container = logit_pheno_covar_reporter.report()
+    if assoc_inst.config.get('PHENO', None) is not None:
+        logit_pheno_reporter = PhenoLogitReporter(assoc_inst)
+        logit_pheno_info_container = logit_pheno_reporter.report()
+
+    all_reporter = AllReport(assoc_inst, chisq_info_container, logit_info_container, covar, logit_covar_info_container)
+    all_reporter.report()
 
 
 class AllReport:
@@ -514,7 +522,7 @@ class LogitReporter:
         if self.report_covar:
             self.resultdir = os.path.join(assoc_inst.config.get('ROUTINE'), 'result/logistic-test/logit_covar')
 
-    def report(self):
+    def report(self, workbook, readmefile):
         self.iter_models()
         if self.report_covar:
             workbook = xlsxwriter.Workbook(os.path.join(self.reportdir, 'Logistic_CORRECT.xlsx'))
@@ -611,6 +619,91 @@ class LogitHandler:
         hom = base_arr + ['HOM'] + [self.data['HOM'].get(key, '') for key in keys]
         het = base_arr + ['HET'] + [self.data['HET'].get(key, '') for key in keys]
         return (dom, rec, add, hom, het)
+
+
+class PhenoLogitReporter(LogitReporter):
+    def __init__(self, assoc_inst, covar):
+        self.basepath = assoc_inst.config.get('basepath')
+        self.reportdir = os.path.join(assoc_inst.config.get('ROUTINE'), 'report')
+        dir_check(self.reportdir)
+        self.resultdir = os.path.join(assoc_inst.config.get('ROUTINE'), 'result/logistic-test/phenoassoc')
+        self.info_container = {}
+        self.report_covar = covar
+        if self.report_covar:
+            self.resultdir = os.path.join(assoc_inst.config.get('ROUTINE'), 'result/logistic-test/phenoassoc_covar')
+
+    def report(self):
+        readmefile = os.path.join(self.basepath, 'ReadMetxt/readme_phenologit.txt')
+        if self.report_covar:
+            workbook = xlsxwriter.Workbook(os.path.join(self.reportdir, 'PhenoLogistic_CORRECT.xlsx'))
+        else:
+            workbook = xlsxwriter.Workbook(os.path.join(self.reportdir, 'PhenoLogistic.xlsx'))
+        formater = Formater(workbook)
+        sheet = workbook.add_worksheet('ALL')
+        sheet.set_row(0, 30)
+        sheet_readme = workbook.add_worksheet('ReadMe')
+        print_readme(sheet_readme, readmefile, formater)
+        header = 'PhenoName,SNP,CHR,BP,Alt Allele,Model,NMISS,Beta,SE,L95,U95,STAT,P-value,FDR_BH adjusted'.split(',')
+        row = 0
+        for i, j in enumerate(header):
+            sheet.write(row, i, j, formater.header)
+        row += 1
+
+        for pheno_snp in self.info_container:
+            handler = self.info_container.get(pheno_snp)
+            line_head = pheno_snp.split('-') # turn joined snp-pheno into list: [pheno, snp]
+            lines = handler.output()
+            for line in lines:
+                arr = line_head + line[1:]
+                fmt = formater_type(arr, [12,13], formater)
+                for i, j in enumerate(arr):
+                    sheet.write(row, i, j, fmt[i])
+                row += 1
+        workbook.close()
+        return self.info_container
+
+    def iter_models(self):
+        import glob
+        models_mark = dict([('dominant', 'DOM'), ('recessive', 'REC'), ('add', 'ADD'), ('hethom', 'HETHOM')])
+        for filename in glob.glob('%s/*linear'):
+            self.record_logit_result(filename, models_mark)
+
+    def record_logit_result(self, filename, models_mark):
+        adjusted = filename + '.adjusted'
+        basename_info = os.path.basename(filename).split('.')
+        pheno_name = basename_info[1]
+        model = basename_info[0].split('_')[1]
+
+        with open(filename, 'rt') as fh:
+            for line in fh:
+                arr = line.split()
+                pheno_snp = '-'.join([pheno_name, arr[1]])
+                if arr[4] in ('ADD', 'DOM', 'REC', 'HOM', 'HET'):
+                    if pheno_snp in self.info_container:
+                        handler = self.info_container.get(pheno_snp)
+                    else:
+                        handler = LogitHandler(pheno_snp)
+                        self.info_container[pheno_snp] = handler
+                        handler.Chr = arr[0]
+                        handler.pos = arr[2]
+                        handler.Minorallele = arr[3]
+                        handler.add_info(arr)
+
+        count = 0
+        with open(adjusted, 'rt') as fh:
+            for line in fh:
+                count += 1
+                if count == 1:
+                    continue
+                arr = line.split()
+                pheno_snp = '-'.join([pheno_name, arr[1]])
+                handler = self.info_container.get(pheno_snp)
+                if mark == 'HETHOM':
+                    handler.data.get('HET').__setitem__('fdr', arr[-2])
+                    handler.data.get('HOM').__setitem__('fdr', arr[-2])
+                else:
+                    handler.data.get(mark).__setitem__('fdr', arr[-2])
+
 
 
 

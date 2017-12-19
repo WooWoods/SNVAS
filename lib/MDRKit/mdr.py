@@ -16,6 +16,7 @@ from ..utils import dir_check
 from ..xlsx_formater import Formater
 
 class MdrOperate:
+    """Gene-gene interaction analysis with Multi Dimensional Reduction method."""
     def __init__(self, asso_inst):
         self.config = asso_inst.config
         self.mdrfile = self.config.get('MDR', None)
@@ -39,13 +40,12 @@ class MdrOperate:
         mdr_jar = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mdr.jar')
         output = os.path.join(self.resultdir, "mdroutput.txt")
 
-        mdr_command = 'java -jar {0} -min=1 -max={1} -cv=10 -table_data=true -minimal_output=true {2} > {3}'.format(mdr_jar, max_model, fmdr, output)
+        mdr_command = 'java -jar {0} -min=1 -max={1} -cv=10 -table_data=true -minimal_output=true\
+                {2} > {3}'.format(mdr_jar, max_model, fmdr, output)
         commandfile = os.path.join(self.tmpdir, 'mdrun.sh')
         with open(commandfile, 'wt') as fh:
             fh.write(mdr_command)
         subprocess.run(["sh", commandfile])
-
-        # subprocess.run(["java", "-jar", mdr_jar,  "-min=1", "-max=%s" % max_model, "-cv=10","-table_data=true", "-minimal_output=true", fmdr, ">",output])
         return output
 
     def read_mdr_result(self, result):

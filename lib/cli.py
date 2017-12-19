@@ -12,7 +12,8 @@ from . import AssocStudy, Formater, MdrOperate, hap_analysis, reporter, PhenoInd
 
 
 AP = argparse.ArgumentParser(
-        description="SSRPA, a toolkit for population analysis with SSR markers."
+        description="SSRPA, a toolkit for population analysis with SSR markers.",
+        formatter_class=argparse.RawTextHelpFormatter,
         )
 
 AP_subparsers = AP.add_subparsers(
@@ -24,6 +25,15 @@ AP_subparsers = AP.add_subparsers(
 ##########################################################################
 
 def _batch_command(args):
+    """Perform complete analysis including:
+        - hwe analysis
+        - chi-test of genotype and case/control
+        - logit-test of genotype and case/control
+        - chi-test and t-test of phenotype and case/control
+        - association of phenotype and genotype
+        - mdr anasysis for gene X gene interaction
+        - haplotype analysis.
+    """
     curr_case = AssocStudy(args.cfg)
     formater = Formater(curr_case)
     formater.make_bed()
@@ -45,6 +55,10 @@ P_batch.set_defaults(func=_batch_command)
 ##########################################################################
 
 def _plink_stage(args):
+    """Perform plink association analysis including:
+        - hwe analysis
+        - plink association analysis
+    """
     curr_case = AssocStudy(args.cfg)
     formater = Formater(curr_case)
     formater.make_bed()
@@ -61,6 +75,7 @@ P_plink.set_defaults(func=_plink_stage)
 ##########################################################################
 
 def _mdr_stage(args):
+    """Perform mdr analysis."""
     curr_case = AssocStudy(args.cfg)
     formater = Formater(curr_case)
     formater.make_bed()
@@ -78,6 +93,7 @@ P_mdr.set_defaults(func=_mdr_stage)
 ##########################################################################
 
 def _hap_stage(args):
+    """Perform haplotype analysis."""
     curr_case = AssocStudy(args.cfg)
     formater = Formater(curr_case)
     formater.make_bed()
@@ -93,12 +109,13 @@ P_hap.set_defaults(func=_hap_stage)
 ##########################################################################
 
 def _pheno_stage(args):
+    """Perform chi-test and t-test for phenotype-VS-case/control"""
     curr_case = AssocStudy(args.cfg)
     formater = Formater(curr_case)
     pheno_test = PhenoIndepTest(curr_case)
     pheno_test.go()
 
-P_pheno = AP_subparsers.add_parser('pheno', help=_hap_stage.__doc__)
+P_pheno = AP_subparsers.add_parser('pheno', help=_pheno_stage.__doc__)
 P_pheno.add_argument('-cfg', metavar='config file',required=True)
 P_pheno.set_defaults(func=_pheno_stage)
 

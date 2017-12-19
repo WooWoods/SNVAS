@@ -31,6 +31,7 @@ def parse_column(val):
     return cols
 
 def formater_type(values, positions, formater):
+    """To generate corresponding cell format to values."""
     fmt = [formater.normal] * len(values)
     for p in positions:
         try:

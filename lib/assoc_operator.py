@@ -65,12 +65,13 @@ def genetic_models(*args):
                 if pheno is not None:
                     outdir = os.path.join(basedir, 'phenoassoc')
                     dir_check(outdir)
-                    tmpname = os.path.join(outdir, 'logit_%s' %model)
                     if model.strip():
+                        tmpname = os.path.join(outdir, 'logistic_%s' %model)
                         commands = [plink, '--bfile', filename, analysis, model,
                                 '--adjust', '--ci', '0.95', '--pheno', pheno,
                                 '--all-pheno', '--out', tmpname, '--allow-no-sex']
                     else:
+                        tmpname = os.path.join(outdir, 'logistic_add')
                         commands = [plink, '--bfile', filename, analysis,
                                 '--adjust', '--ci', '0.95', '--pheno', pheno,
                                 '--all-pheno', '--out', tmpname, '--allow-no-sex']
@@ -78,13 +79,14 @@ def genetic_models(*args):
                 if pheno is not None and covar is not None:
                     outdir = os.path.join(basedir, 'phenoassoc_covar')
                     dir_check(outdir)
-                    tmpname = os.path.join(outdir, 'logit_%s' %model)
                     if model.strip():
+                        tmpname = os.path.join(outdir, 'logistic_%s' %model)
                         commands = [plink, '--bfile', filename, analysis, model,
                                 '--adjust', '--ci', '0.95', '--pheno', pheno,
                                 '--all-pheno', '--covar', covar,
                                 '--out', tmpname, '--allow-no-sex']
                     else:
+                        tmpname = os.path.join(outdir, 'logistic_add')
                         commands = [plink, '--bfile', filename, analysis,
                                 '--adjust', '--ci', '0.95', '--pheno', pheno,
                                 '--all-pheno', '--covar', covar,

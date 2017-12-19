@@ -152,7 +152,8 @@ class Formater:
             cols = parse_column(self.cov_num)
             covar = table.iloc[:, cols]
             covar.insert(0, 'IID', table.index)
-            covar.apply(self.convert_dtype).to_csv(filename, header=False, index=True, sep='\t')
+            covar.insert(0, 'FID', table.index)
+            covar.apply(self.convert_dtype).to_csv(filename, header=True, index=False, sep='\t')
             self.config['COVARFILE'] = filename
 
     def to_pheno(self, table):
@@ -161,7 +162,8 @@ class Formater:
             cols = parse_column(self.pheno_num)
             covar = table.iloc[:, cols]
             covar.insert(0, 'IID', table.index)
-            covar.apply(self.convert_dtype).to_csv(filename, header=False, index=True, sep='\t')
+            covar.insert(0, 'FID', table.index)
+            covar.apply(self.convert_dtype).to_csv(filename, header=True, index=False, sep='\t')
             self.config['PHENOFILE'] = filename
 
     @staticmethod
