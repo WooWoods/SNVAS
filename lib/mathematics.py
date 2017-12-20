@@ -96,9 +96,13 @@ class ChiSquare:
             self.dataset = table.groupby(items).size().unstack()
 
     def calculator(self):
+        from collections import namedtuple
+        Result = namedtuple('Result', 'chi p OR L95 U95')
         chi, p, dof, expected = chi2_contingency(self.dataset)
         OR, L95, U95 = odd_ratio(self.dataset)
-        return chi, p, OR, L95, U95
+        result = Result(chi=chi, p=p, OR=OR, L95=L95, U95=U95)
+        # return chi, p, OR, L95, U95
+        return result
 
     def put_down(self, path, var):
         filename = os.path.join(path, '%s_chi.txt' % var)

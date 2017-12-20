@@ -406,6 +406,7 @@ class HapAssocAnalysis:
     def table_for_LR(self, phase_table, pheno_table, hap):
         """prepare dataset for LR analysis for each haplotype."""
         merged = pd.concat([pheno_table, phase_table], axis=1, join_axes=[pheno_table.index])
+        # `ind_var` is actually current haplotype
         merged['ind_var'] = merged.apply(self.hap_numeralization, args=(hap,), axis=1)
         instance_count = merged.groupby(['grp', 'ind_var']).size()
         frq_case = self.cal_freq(instance_count[1])
@@ -451,12 +452,13 @@ class HapAssocAnalysis:
             result = logit.gofit()
             with open(output, 'wt') as fh:
                 fh.write(str(result.summary2()))
-
+        # OR and 95%CI calculation
         conf = pd.DataFrame(result.conf_int())
         conf['OR'] = result.params
         conf.columns = ['L95', 'U95', 'OR']
         res = np.exp(conf)
         res['pvalue'] = result.pvalues
+        # last row is 'ind_var', i.e hap variable
         return dict(res.iloc[-1])
 
     @staticmethod
