@@ -118,7 +118,7 @@ class AssocStudy:
         options = Options(filename=filename, outname=outname, covar=None, pheno=None)
         return options
 
-    @plink_operator('--bfile', '--model')
+    @plink_operator('--bfile', '--model', '--cell', '0')
     def modelchi(self):
         filename = self.config.get('BED', None)
         outdir = os.path.join(self.config.get('ROUTINE'), 'result/chi-test')
@@ -170,6 +170,8 @@ class AssocStudy:
                 open(output, 'wt') as foh:
             for line in fh:
                 count += 1
+                if re.match(r'^\s$', line):
+                    continue
                 if count == 1:
                     continue
                 arr = line.strip().split()

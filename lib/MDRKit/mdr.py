@@ -28,9 +28,12 @@ class MdrOperate:
         dir_check(self.resultdir)
 
     def go(self):
-        result = self.run_mdr()
-        models = self.read_mdr_result(result)
-        self.to_excel(models)
+        if self.mdrfile:
+            result = self.run_mdr()
+            models = self.read_mdr_result(result)
+            self.to_excel(models)
+        else:
+            pass
 
     def run_mdr(self):
         fmdr = self.mdrfile

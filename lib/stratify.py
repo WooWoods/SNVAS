@@ -33,7 +33,7 @@ class Stratify:
         self.pheno_num = self.config.get('PHENO', '')
         self.stratify = self.config.get('STRATIFY', None)
         if self.stratify is None:
-            raise('Strafication information not provided.')
+            raise Exception('Strafication information not provided.')
         self.hapfile = self.config.get('HAPFILE', '')
         self.chi_test = self.config.get('CHI_TEST', '')
         self.ttest = self.config.get('TTEST', '')
@@ -46,8 +46,8 @@ class Stratify:
         except IOError as e:
             if e.errno in (errno.ENOENT, errno.EISDIR):
                 e.strerror = 'Unable to load geno_file <%s>' % e.strerror
-                raise
-            raise('Melformed geno_file <%s>' % e.strerror)
+                raise Exception()
+            raise Exception('Melformed geno_file <%s>' % e.strerror)
 
         try:
             self.info_tab = pd.read_table(self.info_file, header=0, index_col=0, sep='\t')
@@ -57,8 +57,8 @@ class Stratify:
         except IOError as e:
             if e.errno in (errno.ENOENT, errno.EISDIR):
                 e.strerror = 'Unable to load geno_file <%s>' % e.strerror
-                raise
-            raise('Melformed geno_file <%s>' % e.strerror)
+                raise Exception()
+            raise Exception('Melformed geno_file <%s>' % e.strerror)
 
     def go(self):
         self.load_table()
@@ -80,7 +80,7 @@ class Stratify:
         combinates = list(combinations(col_values, n))
         if n > 1:
             if len(col_values) < 2:
-                raise('%s variable contains values %s less than 2, not enough for grouping' %(col_name, col_values))
+                raise Exception('%s variable contains values %s less than 2, not enough for grouping' %(col_name, col_values))
         return combinates, col, n
 
     def sample_by_combinate(self, combinate, strati_col, n):

@@ -32,7 +32,8 @@ class Formater:
         self.gender_col= self.config.get('GENDER', None)
         self.cov_num = self.config.get('CORRECTION', None)
         self.pheno_num = self.config.get('PHENO', None)
-        self.hap_cutofff = self.config.get('HAP_CUTOFF', None)
+        self.hap_cutofff = self.config.get('HAP_CUTOFF', None) or 100
+        self.mdr_analysis = self.config.get('MDR') or False
         self.hap_treat = None
 
         self.tmpdir = os.path.join(self.root_path, 'tmp')
@@ -47,28 +48,29 @@ class Formater:
         """Load genotype file and phenotype file into pandas DataFrame. And check if these files
         exists or matched."""
         try:
-            geno_tab = pd.read_table(self.geno_file, header=0, index_col=0, sep='\t')
+            geno_tab = pd.read_table(self.geno_file, header=0, index_col=0, sep='\t', low_memory=False)
+            geno_tab.replace('\s+', '0 0', regex=True, inplace=True)
             geno_tab.replace('\/', ' ', regex=True, inplace=True)
             self.geno_tab = geno_tab.fillna('0 0')
         except IOError as e:
             if e.errno in (errno.ENOENT, errno.EISDIR):
                 e.strerror = 'Unable to load geno_file <%s>' % e.strerror
-                raise
-            raise('Melformed geno_file <%s>' % e.strerror)
+                raise Exception()
+            raise Exception('Melformed geno_file <%s>' % e.strerror)
 
         try:
             info_tab = pd.read_table(self.info_file, header=0, index_col=0, sep='\t')
             self.info_tab = info_tab.fillna('-9')
         except IOError as e:
             if e.errno in (errno.ENOENT, errno.EISDIR):
-                e.strerror = 'Unable to load geno_file <%s>' % e.strerror
-                raise
-            raise('Melformed geno_file <%s>' % e.strerror)
+                e.strerror = 'Unable to load info_file <%s>' % e.strerror
+                raise Exception()
+            raise Exception('Melformed info_file <%s>' % e.strerror)
 
         shape_geno = geno_tab.shape
         shape_info = info_tab.shape
         if not shape_geno[0] == shape_info[0]:
-            raise('Samples not match: <geno: %s / pheno: %s>' %(shape_geno[0], shape_info[0]))
+            raise Exception('Samples not match: <geno: %s / pheno: %s>' %(shape_geno[0], shape_info[0]))
 
     def to_ped(self):
         """Turn genotype file into plink ped format."""
@@ -102,7 +104,8 @@ class Formater:
 
         self.to_covar(merged)
         self.to_pheno(merged)
-        self.to_mdr(merged, require_cols_mdr)
+        if self.mdr_analysis:
+            self.to_mdr(merged, require_cols_mdr)
 
     def to_map(self):
         """Turn genotype file into plink map format."""
@@ -116,17 +119,22 @@ class Formater:
                         continue
                     arr = line.strip().split()
                     if count == 1:
+                        if not set(arr) & set(['Gene', 'Chr', 'Position', 'ref', 'alt']):
+                            raise Exception('Loss file header <%s>' % self.snp_file)
                         if len(arr) > 5 or re.match(r'GENE', arr[-1], re.I):
                             self.hap_treat = True
                             continue
                     snp_info[arr[0]] = arr
+            if self.hap_treat and count <= self.hap_cutofff:
+                self.hap_treat = True
+                self.config['TREATHAP'] = True
 
             map_file = os.path.join(self.tmpdir, 'sample.map')
             with open(map_file, 'wt') as fh:
                 for snv in self.snv_sites:
                     record = snp_info.get(snv, None)
                     if record is None:
-                        raise('Loss snv info: <%s>' % snv)
+                        raise Exception('Loss snv info: <%s>' % snv)
                     rs, chrs, pos, *rest = record
                     pos = self.parse_pos(pos)
                     fh.write('{0}\t{1}\t0\t{2}\n'.format(chrs, rs, pos))
@@ -138,7 +146,7 @@ class Formater:
         except IOError as e:
             if e.errno in (errno.ENOENT, errno.EISDIR):
                 e.strerror = 'Unable to load geno_file <%s>' % e.strerror
-                raise
+                raise Exception()
 
     def to_mdr(self, table, cols):
         filename = os.path.join(self.tmpdir, 'mdrdata.txt')
@@ -179,6 +187,8 @@ class Formater:
         tmp = defaultdict(list)
         for i in snp_info:
             gene = snp_info[i][-1]
+            if len(snp_info[i]) < 6 or not gene.strip():
+                continue
             tmp[gene].append(i)
         with open(filename, 'wt') as fh:
             for gene in tmp:

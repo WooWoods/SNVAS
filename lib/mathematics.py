@@ -34,10 +34,10 @@ class LogitRegression:
         # to make sure `y` and `X` are None or available simultaneously
         if self.y is not None or self.X is not None:
             if  self.y is None or self.X is None:
-                raise('y and X must be provided simultaneously.')
+                raise Exception('y and X must be provided simultaneously.')
 
         if any([self.filename, self.formula]) and not all([self.filename, self.formula]):
-            raise('file and formula must be provided simultaneously.')
+            raise Exception('file and formula must be provided simultaneously.')
 
     def data_prepare(self):
         if self.filename is not None:
@@ -80,18 +80,18 @@ class ChiSquare:
         self.dataset = dataset
 
         if self.filename and self.dataset:
-            raise('Accept only one kind of data input.')
+            raise Exception('Accept only one kind of data input.')
 
         if self.filename is not None:
             if items is None:
-                raise('Loss varibles to be analysised. Please refer to the __doc__.')
+                raise Exception('Loss varibles to be analysised. Please refer to the __doc__.')
             table = pd.read_table(self.filename, header=0, index_col=0, sep='\t')
             header = table.columns
             if not contain_item(header, items) and re.search(r'\d', str(items)):
                 try:
                     items = list(map(lambda k: header[k], items))
                 except IndexError:
-                    raise('Items provided not found in the table.')
+                    raise Exception('Items provided not found in the table.')
 
             self.dataset = table.groupby(items).size().unstack()
 

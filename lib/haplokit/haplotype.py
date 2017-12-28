@@ -22,12 +22,15 @@ from ..xlsx_formater import Formater
 from .block_read import BlockIdentifier
 
 def hap_analysis(assoc_inst):
-    split_ped = SplitPed(assoc_inst)
-    genes = split_ped.go()
-    haploview = Haploview(assoc_inst, genes)
-    haploview.go()
-    hapassoc = HapAssocAnalysis(assoc_inst)
-    hapassoc.hap_go()
+    if assoc_inst.config.get('TREATHAP'):
+        split_ped = SplitPed(assoc_inst)
+        genes = split_ped.go()
+        haploview = Haploview(assoc_inst, genes)
+        haploview.go()
+        hapassoc = HapAssocAnalysis(assoc_inst)
+        hapassoc.hap_go()
+    else:
+        print('[NOTE] Gene info not provided or snvs numbers above cutoff, ignoring haplotype analysis.')
 
 
 class SplitPed:
@@ -343,6 +346,8 @@ class HapAssocAnalysis:
         with open(self.snp_file, 'rt') as fh:
             for line in fh:
                 count += 1
+                if re.match(r'^\s$', line):
+                    continue
                 if count == 1:
                     continue
                 arr = line.split()

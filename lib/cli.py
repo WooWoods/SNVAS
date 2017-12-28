@@ -74,6 +74,21 @@ P_plink = AP_subparsers.add_parser('plink', help=_plink_stage.__doc__)
 P_plink.add_argument('-cfg', metavar='config file',required=True)
 P_plink.set_defaults(func=_plink_stage)
 
+##########################################################################
+### Plink_analysis
+##########################################################################
+
+def _plink_report(args):
+    """Perform plink association analysis result report.
+    Usage:
+        ASkit.py report -cfg config.ini
+    """
+    curr_case = AssocStudy(args.cfg)
+    reporter(curr_case)
+
+P_report = AP_subparsers.add_parser('report', help=_plink_report.__doc__)
+P_report.add_argument('-cfg', metavar='config file',required=True)
+P_report.set_defaults(func=_plink_report)
 
 ##########################################################################
 ### MDR

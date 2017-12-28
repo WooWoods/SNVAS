@@ -23,14 +23,15 @@ def reporter(assoc_inst):
     logit_reporter = LogitReporter(assoc_inst)
     logit_info_container = logit_reporter.report()
     logit_covar_info_container = None
-    if assoc_inst.config.get('CORRECTION', None) is not None:
+    covar = False
+    if assoc_inst.config.get('CORRECTION', None):
         covar = True
         logit_covar_reporter = LogitReporter(assoc_inst, covar)
         logit_covar_info_container = logit_covar_reporter.report()
-        if assoc_inst.config.get('PHENO', None) is not None:
+        if assoc_inst.config.get('PHENO', None):
             logit_pheno_covar_reporter = PhenoLogitReporter(assoc_inst, covar)
             logit_pheno_covar_info_container = logit_pheno_covar_reporter.report()
-    if assoc_inst.config.get('PHENO', None) is not None:
+    if assoc_inst.config.get('PHENO', None):
         logit_pheno_reporter = PhenoLogitReporter(assoc_inst)
         logit_pheno_info_container = logit_pheno_reporter.report()
 
@@ -41,13 +42,14 @@ def reporter(assoc_inst):
 class AllReport:
     def __init__(self, assoc_inst, chisq_info_container, logit_info_container, covar=False, *args):
         self.reportdir = os.path.join(assoc_inst.config.get('ROUTINE'), 'report')
+        self.report_cutoff = assoc_inst.config.get('REPORT_CUTOFF', None) or 1
         self.chisq = chisq_info_container
         self.logit = logit_info_container
         self.report_covar = False
         if covar:
+            self.report_covar = True
             if args[0] is None:
                 self.report_covar = False
-            self.report_covar = True
             self.logit_covar = args[0]
 
         self.modelname = {
@@ -70,11 +72,20 @@ class AllReport:
         row_logit = 0
         row_logit_covar = 0
         for snp in self.chisq:
-            row_chi = self.chi_block_performer(sheet_chi, row_chi, self.chisq.get(snp), header_chi, formater)
-            row_logit = self.logit_block_performer(sheet_logit, row_logit, self.chisq.get(snp), self.logit, header_logit, formater)
+            chi_handler = self.chisq.get(snp)
+            if not self.judge_retain(chi_handler):
+                continue
+            row_chi = self.chi_block_performer(sheet_chi, row_chi, chi_handler, header_chi, formater)
+            row_logit = self.logit_block_performer(sheet_logit, row_logit, chi_handler, self.logit, header_logit, formater)
             if self.report_covar:
                 row_logit_covar = self.logit_block_performer(sheet_logit_covar, row_logit_covar, self.chisq.get(snp), self.logit_covar, header_logit, formater)
         workbook.close()
+
+    def judge_retain(self, handler):
+        try:
+            return any(list(map(lambda p: p < self.report_cutoff, handler.allp)))
+        except:
+            return False
 
     def logit_block_performer(self, sheet, row, handler, res_container, header, formater):
         orci_fmt = '{0}({1}-{2})'
@@ -117,9 +128,9 @@ class AllReport:
                     sheet.write(row, i + 3, j, fmt[i+3])
                 row += 1
             sheet.merge_range(merge_row, 2, merge_row + 1, 2, self.modelname.get(model), fmt[2])
-            sheet.merge_range(merge_row, 6, merge_row + 1, 6, arr[6], fmt[6])
-            sheet.merge_range(merge_row, 7, merge_row + 1, 7, arr[7], fmt[7])
-            sheet.merge_range(merge_row, 8, merge_row + 1, 8, arr[8], fmt[8])
+            sheet.merge_range(merge_row, 6, merge_row + 1, 6, tmp_arr[6], fmt[6])
+            sheet.merge_range(merge_row, 7, merge_row + 1, 7, tmp_arr[7], fmt[7])
+            sheet.merge_range(merge_row, 8, merge_row + 1, 8, tmp_arr[8], fmt[8])
             merge_row += 2
 
         tmplogit = [logit_handler.data.get('ADD').get(k, '') for k in logitkeys]
@@ -217,7 +228,7 @@ class ChiBlockHandler:
         genounaff = handler.data['ALLELIC'].get('UNAFF').split('/')
         chi = handler.data['ALLELIC'].get('chi')
         p = handler.data['ALLELIC'].get('p')
-        OR = handler.data['ALLELIC'].get('OR')
+        OR = handler.data['ALLELIC'].get('ORCI')
         FDR = handler.data['ALLELIC'].get('FDR')
         self.allele['0'] = [self.snp, 'ALL', 'Allele', self.ref, genoaff[1], genounaff[1], chi, OR, p, FDR]
         self.allele['1'] = [self.snp, 'ALL', 'Allele', self.alt, genoaff[0], genounaff[0], chi, OR, p, FDR]
@@ -227,6 +238,7 @@ class ChiBlockHandler:
 class HweReporter:
     def __init__(self, assoc_inst):
         self.basepath = assoc_inst.config.get('basepath')
+        self.snpinfo = assoc_inst.config.get('SNPFILE')
         self.reportdir = os.path.join(assoc_inst.config.get('ROUTINE'), 'report')
         dir_check(self.reportdir)
         self.resultdir = os.path.join(assoc_inst.config.get('ROUTINE'), 'result')
@@ -264,6 +276,7 @@ class HweReporter:
         workbook.close()
 
     def record_hwe_result(self):
+        snpinfo = self.get_snpinfo()
         hwefile = os.path.join(self.resultdir, 'hwe/hwe.hwe')
         count = 0
         with open(hwefile, 'rt') as fh:
@@ -278,9 +291,19 @@ class HweReporter:
                     handler = HweHandler(arr[1])
                     self.info_container[arr[1]] = handler
                 handler.Chr = arr[0]
+                handler.pos = snpinfo[arr[1]][0]
                 handler.Minorallele = arr[3]
                 handler.Majorallele = arr[4]
                 handler.add_info(arr)
+    def get_snpinfo(self):
+        snp = {}
+        with open(self.snpinfo, 'rt') as fh:
+            for line in fh:
+                if re.match(r'^\s$', line):
+                    continue
+                arr = line.split()
+                snp[arr[0]] = arr[2:5]
+        return snp
 
     def record_maf(self):
         maffile = os.path.join(self.resultdir, 'hwe/freq.frq')
@@ -313,7 +336,6 @@ class HweReporter:
                 handler.data.get('AFF')['maf'] = arr[4]
                 handler.data.get('UNAFF')['maf'] = arr[5]
 
-
     def parse_annotation(self):
         f1000g = os.path.join(self.resultdir, 'hwe/library.hg19_ALL.sites.2012_02_dropped')
         fgeneanno = os.path.join(self.resultdir, 'hwe/library.variant_function')
@@ -328,7 +350,6 @@ class HweReporter:
                     else:
                         continue
                     handler.g1000 = arr[1]
-                    handler.pos = arr[3]
         except FileNotFoundError:
             pass
         try:
@@ -359,8 +380,8 @@ class HweReporter:
             pass
 
 
-
 class HweHandler:
+    """Hwe result handler, to save result for each snv."""
     def __init__(self, snp):
         self.snp = snp
         self.Chr = None
@@ -403,6 +424,7 @@ class HweHandler:
 
 
 class ChiReporter:
+    """Put chi-square analysis result into xlsx files."""
     def __init__(self, assoc_inst):
         self.basepath = assoc_inst.config.get('basepath')
         self.reportdir = os.path.join(assoc_inst.config.get('ROUTINE'), 'report')
@@ -495,12 +517,14 @@ class ChiReporter:
 
 
 class ChiHandler:
+    """To save result of chi-square analysis."""
     def __init__(self, snp):
         self.snp = snp
         self.Chr = None
         self.Minorallele = None
         self.Majorallele = None
         self.data = {}
+        self.allp = []
 
     def output(self):
         base_arr = [self.snp, self.Chr, self.Majorallele, self.Minorallele]
@@ -517,10 +541,12 @@ class ChiHandler:
         self.data.setdefault(test, {}).__setitem__('UNAFF', unaffgeno)
         self.data.setdefault(test, {}).__setitem__('chi', chisq)
         self.data.setdefault(test, {}).__setitem__('p', p)
-
+        if re.match(r'\d', p):
+            self.allp.append(float(p))
 
 
 class LogitReporter:
+    """Put result of logistic analysis into a xlsx."""
     def __init__(self, assoc_inst, covar=False):
         self.basepath = assoc_inst.config.get('basepath')
         self.reportdir = os.path.join(assoc_inst.config.get('ROUTINE'), 'report')
@@ -568,6 +594,9 @@ class LogitReporter:
             self.record_logit_result(logitfile, mark)
 
     def record_logit_result(self, filename, mark):
+        """extracting result  from logistic analysis result files
+        of different genetic models.
+        """
         adjusted = filename + '.adjusted'
         try:
             with open(filename, 'rt') as fh:
@@ -607,6 +636,7 @@ class LogitReporter:
 
 
 class LogitHandler:
+    """To save logistic analysis result for each snv."""
     def __init__(self, snp):
         self.snp = snp
         self.Chr = None
@@ -637,6 +667,7 @@ class LogitHandler:
 
 
 class PhenoLogitReporter(LogitReporter):
+    """Put result of logistic analysis for phenotypes and genotypes into a xlsx."""
     def __init__(self, assoc_inst, covar=False):
         self.basepath = assoc_inst.config.get('basepath')
         self.reportdir = os.path.join(assoc_inst.config.get('ROUTINE'), 'report')
@@ -695,7 +726,7 @@ class PhenoLogitReporter(LogitReporter):
             with open(filename, 'rt') as fh:
                 for line in fh:
                     arr = line.split()
-                    pheno_snp = '-'.join([pheno_name, arr[1]])
+                    pheno_snp = '-'.join([pheno_name, arr[1]]) # to accommodate this specific situation to `LogitHandler`
                     if arr[4] in ('ADD', 'DOM', 'REC', 'HOM', 'HET'):
                         if pheno_snp in self.info_container:
                             handler = self.info_container.get(pheno_snp)
