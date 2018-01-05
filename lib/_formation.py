@@ -60,6 +60,8 @@ class Formater:
 
         try:
             info_tab = pd.read_table(self.info_file, header=0, index_col=0, sep='\t')
+            # if self.gender_col:
+                # info_tab.iloc[:, self.gender_col - 1].fillna('-9')
             self.info_tab = info_tab.fillna('-9')
         except IOError as e:
             if e.errno in (errno.ENOENT, errno.EISDIR):
@@ -117,7 +119,8 @@ class Formater:
                     count += 1
                     if re.match(r'^\s+$', line):
                         continue
-                    arr = line.strip().split()
+                    line = re.sub(r'[\r\n]$', '', line)
+                    arr = line.split()
                     if count == 1:
                         if not set(arr) & set(['Gene', 'Chr', 'Position', 'ref', 'alt']):
                             raise Exception('Loss file header <%s>' % self.snp_file)
@@ -161,6 +164,7 @@ class Formater:
             covar = table.iloc[:, cols]
             covar.insert(0, 'IID', table.index)
             covar.insert(0, 'FID', table.index)
+            # covar.fillna('-9')
             covar.apply(self.convert_dtype).to_csv(filename, header=True, index=False, sep='\t')
             self.config['COVARFILE'] = filename
 
@@ -192,7 +196,8 @@ class Formater:
             tmp[gene].append(i)
         with open(filename, 'wt') as fh:
             for gene in tmp:
-                fh.write('**\t{0}\t{1}\n'.format(gene, '\t'.join(tmp[gene])))
+                if len(tmp[gene]) >= 2:
+                    fh.write('**\t{0}\t{1}\n'.format(gene, '\t'.join(tmp[gene])))
 
     @staticmethod
     def parse_pos(pos):

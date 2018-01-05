@@ -42,6 +42,7 @@ class LogitRegression:
     def data_prepare(self):
         if self.filename is not None:
             dataset = pd.read_table(self.filename, header=0, index_col=None, sep='\t')
+            dataset.replace('-9', np.nan, inplace=True)
             self.y, self.X = patsy.dmatrices(self.formula, dataset)
 
     def gofit(self):
@@ -77,7 +78,7 @@ class ChiSquare:
 
     def __init__(self, filename=None, dataset=None, items=None):
         self.filename = filename
-        self.dataset = dataset
+        self.dataset = np.array(dataset)
 
         if self.filename and self.dataset:
             raise Exception('Accept only one kind of data input.')
@@ -86,6 +87,7 @@ class ChiSquare:
             if items is None:
                 raise Exception('Loss varibles to be analysised. Please refer to the __doc__.')
             table = pd.read_table(self.filename, header=0, index_col=0, sep='\t')
+            table.replace('-9', np.nan, inplace=True)
             header = table.columns
             if not contain_item(header, items) and re.search(r'\d', str(items)):
                 try:
@@ -93,7 +95,7 @@ class ChiSquare:
                 except IndexError:
                     raise Exception('Items provided not found in the table.')
 
-            self.dataset = table.groupby(items).size().unstack()
+            self.dataset = np.array(table.groupby(items).size().unstack())
 
     def calculator(self):
         from collections import namedtuple
@@ -120,6 +122,8 @@ def contain_item(header, items):
 
 def odd_ratio(dataset):
     try:
+        if dataset.size > 4:
+            return 'NA', 'NA', 'NA'
         darray = np.array(dataset).reshape(2,2)
         OR = darray[0][0] * darray[1][1] / (darray[0][1] * darray[1][0])
         L = np.log(OR)

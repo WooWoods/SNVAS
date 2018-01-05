@@ -14,11 +14,11 @@ from .utils import dir_check, parse_column
 
 
 class Stratify:
-    """Class for stratification, it just prepare the files that needed by
+    """Class for stratification, it just prepares the files that needed by
     main program according to information provided by user. After this
     process, user may get a series of sub-projects which may meet expectatioin
-    of user, and the user need to check these sub-projects and run main program
-    mannuly.
+    of user, and then the user need to check these sub-projects and run main
+    program mannuly.
 
     :param assoc_inst: an instance of AssocStudy
     """
@@ -40,9 +40,9 @@ class Stratify:
 
     def load_table(self):
         try:
-            geno_tab = pd.read_table(self.geno_file, header=0, index_col=0, sep='\t')
-            geno_tab.replace('\/', ' ', regex=True, inplace=True)
-            self.geno_tab = geno_tab.fillna('0 0')
+            self.geno_tab = pd.read_table(self.geno_file, header=0, index_col=0, sep='\t')
+            # geno_tab.replace('\/', ' ', regex=True, inplace=True)
+            # self.geno_tab = geno_tab.fillna('0 0')
         except IOError as e:
             if e.errno in (errno.ENOENT, errno.EISDIR):
                 e.strerror = 'Unable to load geno_file <%s>' % e.strerror
@@ -50,9 +50,11 @@ class Stratify:
             raise Exception('Melformed geno_file <%s>' % e.strerror)
 
         try:
-            self.info_tab = pd.read_table(self.info_file, header=0, index_col=0, sep='\t')
+            info_tab = pd.read_table(self.info_file, header=0, index_col=0, sep='\t')
 
-            # self.info_tab = info_tab.fillna('-9')
+            if self.gender_col:
+                info_tab.iloc[:, self.gender_col - 1].fillna('-9')
+            self.info_tab = info_tab
             self.info_names = self.info_tab.columns
         except IOError as e:
             if e.errno in (errno.ENOENT, errno.EISDIR):
@@ -110,12 +112,15 @@ class Stratify:
         if n == 1:
             tmp_info = self.info_tab[self.info_tab.iloc[:, strati_col].isin(combinate)]
         else:
-            tmp_info = self.info_tab[self.info_tab.iloc[:, strati_col].isin(combinate)]
-            tmp_info.iloc[:, 0][tmp_info.iloc[:, strati_col] == combinate[0]] = 'case'
-            tmp_info.iloc[:, 0][tmp_info.iloc[:, strati_col] == combinate[1]] = 'control'
+            partition_info = self.info_tab[self.info_tab.iloc[:, strati_col].isin(combinate)]
+            tmp_info = pd.concat([partition_info.iloc[:, strati_col], partition_info.iloc[:, 1: strati_col], partition_info.iloc[:, (strati_col + 1):]], axis=1)
+            tmp_info.iloc[:, 0].replace(combinate[0], 'case', inplace=True)
+            tmp_info.iloc[:, 0].replace(combinate[1], 'control', inplace=True)
+            # tmp_info.iloc[:, 0][tmp_info.iloc[:, strati_col] == combinate[0]] = 'case'
+            # tmp_info.iloc[:, 0][tmp_info.iloc[:, strati_col] == combinate[1]] = 'control'
         samples = tmp_info.index
         tmp_geno = self.geno_tab.loc[samples]
-        tmp_info.to_csv(strati_infofile, header=True, index=True, sep='\t')
+        tmp_info.apply(self.convert_dtype).to_csv(strati_infofile, header=True, index=True, sep='\t')
         tmp_geno.to_csv(strati_genofile, header=True, index=True, sep='\t')
         self.print_configfile(strati_genofile, strati_infofile, snpfile, strati_root)
 
@@ -125,7 +130,7 @@ GENOFILE = '{genofile}'
 INFOFILE = '{infofile}'
 SNPFILE = '{snpfile}'
 HAPFILE = '{hapfile}'
-GENDER = {gender}
+GENDER = '{gender}'
 CORRECTION = {covar}
 PHENO = {pheno}
 CHI_TEST = {chi}
@@ -144,6 +149,13 @@ TTEST = {ttest}
         filename = os.path.join(root_path, 'config.ini')
         with open(filename, 'wt') as fh:
             fh.write(config_model.format_map(tmpdict))
+
+    @staticmethod
+    def convert_dtype(x):
+        try:
+            return x.astype(int)
+        except:
+            return x
 
 
 

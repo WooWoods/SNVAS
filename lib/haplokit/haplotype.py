@@ -240,11 +240,15 @@ class HapAssocAnalysis:
             for hap in hap_for_handle[block]:
                 ready_table, freq = self.table_for_LR(phase_tab, sample_pheno, hap)
                 result = self.perform_LR(block, hap, ready_table)
+                if result is None:
+                    continue
                 result.update(freq)
                 res_wrapper[hap] = result
                 self.result_wrapper.append(res_wrapper)
                 if self.cov_num:
                     result = self.perform_LR(block, hap, ready_table, covar=True)
+                    if result is None:
+                        continue
                     result.update(freq)
                     cov_res_wrapper[hap] = result
                     self.covar_result_wrapper.append(cov_res_wrapper)
@@ -385,14 +389,14 @@ class HapAssocAnalysis:
 
         # handling correction
         if self.cov_num:
-            header = info_table.columns
-            cols = deepcopy(self.cov_num)
-            cols.insert(0,0)
-            tmp_tb = info_table.iloc[:, cols]
-            head = list(tmp_tb.columns)
-            head[0] = 'grp'
-            tmp_tb.columns = head
-            return tmp_tb
+            header = list(info_table.columns)
+            # cols = deepcopy(self.cov_num)
+            # cols.insert(0,0)
+            # tmp_tb = info_table.iloc[:, cols]
+            # head = list(tmp_tb.columns)
+            header[0] = 'grp'
+            info_table.columns = header
+            return info_table
 
         smaple_pheno = info_table.iloc[:, 0]
         sample_pheno.columns = ['grp']
@@ -439,6 +443,7 @@ class HapAssocAnalysis:
     def perform_LR(self, block, hap, merged_table, covar=False):
         lr_res_dir = os.path.join(self.resultdir, 'LR_result')
         dir_check(lr_res_dir)
+        merged_table.to_csv(os.path.join(lr_res_dir, '%s-%s.txt' %(block, hap)), header=True, index=True)
         if self.cov_num and covar:
             output = os.path.join(lr_res_dir, '.'.join([block, hap, 'cov.result']))
             header = merged_table.columns
@@ -448,23 +453,30 @@ class HapAssocAnalysis:
             y, X = patsy.dmatrices(formula, merged_table)
             logit = LogitRegression(y, X)
             result = logit.gofit()
-            with open(output, 'wt') as fh:
-                fh.write(str(result.summary2()))
+            # with open(output, 'wt') as fh:
+                # fh.write(str(result.summary2()))
         else:
             output = os.path.join(lr_res_dir, '.'.join([block, hap, 'result']))
             y, X = patsy.dmatrices('grp ~ ind_var', merged_table)
             logit = LogitRegression(y, X)
             result = logit.gofit()
+            # with open(output, 'wt') as fh:
+                # fh.write(str(result.summary2()))
+
+        # result output part
+        if result is not None:
             with open(output, 'wt') as fh:
                 fh.write(str(result.summary2()))
-        # OR and 95%CI calculation
-        conf = pd.DataFrame(result.conf_int())
-        conf['OR'] = result.params
-        conf.columns = ['L95', 'U95', 'OR']
-        res = np.exp(conf)
-        res['pvalue'] = result.pvalues
-        # last row is 'ind_var', i.e hap variable
-        return dict(res.iloc[-1])
+            # OR and 95%CI calculation
+            conf = pd.DataFrame(result.conf_int())
+            conf['OR'] = result.params
+            conf.columns = ['L95', 'U95', 'OR']
+            res = np.exp(conf)
+            res['pvalue'] = result.pvalues
+            # last row is 'ind_var', i.e hap variable
+            return dict(res.iloc[-1])
+        else:
+            return None
 
     @staticmethod
     def hap_numeralization(series, hap):

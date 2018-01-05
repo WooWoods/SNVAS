@@ -10,6 +10,7 @@ import re
 
 import xlsxwriter
 import numpy as np
+import pandas as pd
 
 from . import ChiSquare, Ttest
 from .utils import dir_check, parse_column, formater_type
@@ -44,9 +45,9 @@ class PhenoIndepTest:
             cols = parse_column(self.pheno_chi)
             for col in cols:
                 var_name = header[col + 1]
-                result, dataset = self.var_chisq([0, col], var_name)
+                result, dataset, cata = self.var_chisq([0, col], var_name)
                 chi, p, OR, L95, U95 = result
-                chi_result = ChitestHandler(var_name, dataset, chi, p)
+                chi_result = ChitestHandler(var_name, dataset, chi, p, cata)
                 self.chi_result_container.append(chi_result)
 
         if self.pheno_ttest is not None and re.search(r'\d', str(self.pheno_ttest)):
@@ -58,9 +59,19 @@ class PhenoIndepTest:
                 self.t_result_container.append(t_result)
 
     def var_chisq(self, var, var_name):
-        chi = ChiSquare(filename=self.info_file, items=var)
+        table = pd.read_table(self.info_file, header=0, index_col=0, sep='\t')
+        table.replace('-9', np.nan, inplace=True)
+        header = table.columns
+        if not contain_item(header, var) and re.search(r'\d', str(var)):
+            try:
+                var = list(map(lambda k: header[k], var))
+            except IndexError:
+                raise Exception('Items provided not found in the table.')
+        dataset = table.groupby(var).size().unstack()
+
+        chi = ChiSquare(dataset=np.array(dataset))
         result = chi.put_down(self.resultdir, var_name)
-        return result, chi.dataset
+        return result, chi.dataset, list(dataset.columns)
 
     def var_ttest(self, var, var_name, group=0):
         t_test = Ttest(filename=self.info_file, groupby=group, var=var)
@@ -84,30 +95,34 @@ class PhenoIndepTest:
         sheet.write(row, 0, result.item_name, formater.header)
         row += 1
 
-        for i, j in enumerate(['项目', 1, 0]):
-            sheet.write(row, i, j, formater.header)
+        for i, j in enumerate(['项目'] + result.cata):
+            sheet.write(row, i, str(j), formater.header)
         row += 1
-        case_data = ['case'] + list(np.array(result.dataset).reshape(2,2)[0])
-        ctl_data = ['control'] + list(np.array(result.dataset).reshape(2,2)[1])
+        case_data = ['case'] + list(np.array(result.dataset).reshape(2,-1)[0])
+        ctl_data = ['control'] + list(np.array(result.dataset).reshape(2,-1)[1])
         for i, j in enumerate(case_data):
-            sheet.write(row, i, j, formater.normal)
+            sheet.write(row, i, str(j), formater.normal)
         row += 1
         for i, j in enumerate(ctl_data):
-            sheet.write(row, i, j, formater.normal)
+            sheet.write(row, i, str(j), formater.normal)
         row += 1
         sheet.write(row, 0, 'case--control', formater.normal)
         row += 1
         sheet.write(row, 0, 'chi-score', formater.normal)
-        sheet.write(row, 1, result.chi, formater.normal)
+        sheet.write(row, 1, str(result.chi), formater.normal)
         row += 1
         sheet.write(row, 0, 'p', formater.normal)
         p = result.p
         fmt = formater.normal
         if p <= 0.05:
             fmt = formater.remarkable
-        sheet.write(row, 1, result.p, fmt)
+        sheet.write(row, 1, str(result.p), fmt)
         row += 1
         return row
+
+    @staticmethod
+    def parse_nan(datalist):
+        return ['NA' if i is np.nan else i for i in datalist]
 
     def t_result_printer(self, result, sheet, row, formater):
         header = ['项目', '例数', '均值', '中位数', '标准差', '最小值', '最大值']
@@ -149,11 +164,16 @@ class TtestHandler:
         self.summary_two = summary_two
 
 class ChitestHandler:
-    def __init__(self, item_name, dataset, chi, p):
+    def __init__(self, item_name, dataset, chi, p, cata):
         self.item_name = item_name
         self.dataset = dataset
         self.chi = chi
         self.p = p
+        self.cata = cata
 
 
+def contain_item(header, items):
+    h = set(header)
+    i = set(items)
+    return i & h == i
 

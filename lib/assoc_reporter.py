@@ -7,6 +7,7 @@
 
 import os
 import re
+import shutil
 
 import xlsxwriter
 from collections import defaultdict
@@ -42,6 +43,12 @@ def reporter(assoc_inst):
 class AllReport:
     def __init__(self, assoc_inst, chisq_info_container, logit_info_container, covar=False, *args):
         self.reportdir = os.path.join(assoc_inst.config.get('ROUTINE'), 'report')
+        raw_datadir = os.path.join(self.reportdir, 'Raw_data')
+        dir_check(raw_datadir)
+        tmpdir = os.path.join(assoc_inst.config.get('ROUTINE'), 'tmp')
+        shutil.copy(os.path.join(tmpdir, 'sample.map'), raw_datadir)
+        shutil.copy(os.path.join(tmpdir, 'sample.ped'), raw_datadir)
+
         self.report_cutoff = assoc_inst.config.get('REPORT_CUTOFF', None) or 1
         self.chisq = chisq_info_container
         self.logit = logit_info_container

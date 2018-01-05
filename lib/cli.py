@@ -153,8 +153,8 @@ P_pheno.set_defaults(func=_pheno_stage)
 ##########################################################################
 
 def _stratify(args):
-    """Preparing stratification sub-project by `STRATIFY` information
-    provided in the config.ini file.
+    """Preparing files for stratification sub-project by `STRATIFY`
+    information provided in the config.ini file.
     Usage:
         ASkit.py strati -cfg config.ini
     """
@@ -176,7 +176,7 @@ def _LR(args):
     :param formula: R-style formula. e.g. y ~ a + b,
                     in which 'y', 'a', 'b' are column names of the file
     Usage:
-        ASkit.py LR -filename /home/example.txt -formula y~a+b
+        ASkit.py LR -filename Example/hla_lcedel.txt -formula a~b (note: no space in formula)
     """
     filename = args.filename
     formula = args.formula
@@ -198,7 +198,7 @@ def _chi_test(args):
     :param y: variable name for groupby.
     :param x: another variable.
     Usage:
-        ASkit.py -filename /home/example.txt -y group -x gender
+        ASkit.py chi -filename Example/hla_lcedel.txt -y class -x a
     """
     filename = args.filename
     y = args.y
