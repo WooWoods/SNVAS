@@ -24,7 +24,12 @@ def reporter(assoc_inst):
     logit_reporter = LogitReporter(assoc_inst)
     logit_info_container = logit_reporter.report()
     logit_covar_info_container = None
+    fisher_info_container = None
     covar = False
+    if assoc_inst.config.get('FISHER', None):
+        fisher_reporter = FisherReporter(assoc_inst)
+        fisher_info_container = fisher_reporter.report()
+
     if assoc_inst.config.get('CORRECTION', None):
         covar = True
         logit_covar_reporter = LogitReporter(assoc_inst, covar)
@@ -36,7 +41,7 @@ def reporter(assoc_inst):
         logit_pheno_reporter = PhenoLogitReporter(assoc_inst)
         logit_pheno_info_container = logit_pheno_reporter.report()
 
-    all_reporter = AllReport(assoc_inst, chisq_info_container, logit_info_container, covar, logit_covar_info_container)
+    all_reporter = AllReport(assoc_inst, chisq_info_container, logit_info_container, covar, logit_covar_info_container, fisher_info_container)
     all_reporter.report()
 
 
@@ -53,11 +58,16 @@ class AllReport:
         self.chisq = chisq_info_container
         self.logit = logit_info_container
         self.report_covar = False
+        self.report_fisher = False
         if covar:
             self.report_covar = True
             if args[0] is None:
                 self.report_covar = False
             self.logit_covar = args[0]
+
+        if assoc_inst.config.get('FISHER', None):
+            self.report_fisher = True
+            self.fisher = args[1]
 
         self.modelname = {
                 'dom': 'Dominant',
@@ -69,23 +79,32 @@ class AllReport:
         workbook = xlsxwriter.Workbook(os.path.join(self.reportdir, 'Report.xlsx'))
         formater = Formater(workbook)
         sheet_chi = workbook.add_worksheet('卡方检验')
+        if self.report_fisher:
+            sheet_fisher = workbook.add_worksheet('Fisher检验')
+
         sheet_logit = workbook.add_worksheet('逻辑回归')
         if self.report_covar:
             sheet_logit_covar = workbook.add_worksheet('逻辑回归校正')
         header_chi = 'SNP,Class,Model,Genotype,Case,Control,ChiScore,OR(95%CI),P-value,FDR_BH adjusted'.split(',')
+        header_fisher = 'SNP,Class,Model,Genotype,Case,Control,OR(95%CI),P-value,FDR_BH adjusted'.split(',')
         header_logit = 'SNP,Class,Model,Genotype,Case,Control,OR(95%CI),P-value,FDR_BH adjusted'.split(',')
 
         row_chi = 0
+        row_fisher = 0
         row_logit = 0
         row_logit_covar = 0
         for snp in self.chisq:
             chi_handler = self.chisq.get(snp)
             if not self.judge_retain(chi_handler):
                 continue
+
             row_chi = self.chi_block_performer(sheet_chi, row_chi, chi_handler, header_chi, formater)
+            if self.report_fisher:
+                row_fisher = self.fisher_block_performer(sheet_fisher, row_fisher, self.fisher.get(snp), header_fisher, formater)
+
             row_logit = self.logit_block_performer(sheet_logit, row_logit, chi_handler, self.logit, header_logit, formater)
             if self.report_covar:
-                row_logit_covar = self.logit_block_performer(sheet_logit_covar, row_logit_covar, self.chisq.get(snp), self.logit_covar, header_logit, formater)
+                row_logit_covar = self.logit_block_performer(sheet_logit_covar, row_logit_covar, chi_handler, self.logit_covar, header_logit, formater)
         workbook.close()
 
     def judge_retain(self, handler):
@@ -182,6 +201,44 @@ class AllReport:
             sheet.merge_range(merge_row, 7, merge_row + 1, 7, arr[7], fmt[7])
             sheet.merge_range(merge_row, 8, merge_row + 1, 8, arr[8], fmt[8])
             sheet.merge_range(merge_row, 9, merge_row + 1, 9, arr[9], fmt[9])
+            merge_row += 2
+        row += 2
+        return row
+
+    def fisher_block_performer(self, sheet, row, handler, header, formater):
+        for i, j in enumerate(header):
+            sheet.write(row, i, j, formater.normal)
+        row += 1
+        merge_row = row
+
+        blockhandler = ChiBlockHandler(handler)
+        sheet.merge_range(merge_row, 0, merge_row + 8, 0, handler.snp, formater.normal)
+        sheet.merge_range(merge_row, 1, merge_row + 8, 1, 'ALL', formater.normal)
+        for key in ['00', '01', '11']:
+            arr = blockhandler.codom.get(key)
+            arr_tmp = arr[0:6] + arr[7:]
+            fmt = formater_type(arr_tmp, [7,8], formater)
+            for i, j in enumerate(arr_tmp[3:]):
+                sheet.write(row, i + 3, j, fmt[i + 3])
+            row += 1
+        sheet.merge_range(merge_row, 2, merge_row + 2, 2, 'Codominant', fmt[2])
+        sheet.merge_range(merge_row, 6, merge_row + 2, 6, arr_tmp[6], fmt[6])
+        sheet.merge_range(merge_row, 7, merge_row + 2, 7, arr_tmp[7], fmt[7])
+        sheet.merge_range(merge_row, 8, merge_row + 2, 8, arr_tmp[8], fmt[8])
+        merge_row += 3
+
+        for model in ['dom', 'rec', 'allele']:
+            for key in ['0', '1']:
+                arr = blockhandler.__dict__.get(model).get(key)
+                arr_tmp = arr[0:6] + arr[7:]
+                fmt = formater_type(arr, [7,8], formater)
+                for i, j in enumerate(arr_tmp):
+                    sheet.write(row, i, j, fmt[i])
+                row += 1
+            sheet.merge_range(merge_row, 2, merge_row + 1, 2, self.modelname.get(model), fmt[2])
+            sheet.merge_range(merge_row, 6, merge_row + 1, 6, arr_tmp[6], fmt[6])
+            sheet.merge_range(merge_row, 7, merge_row + 1, 7, arr_tmp[7], fmt[7])
+            sheet.merge_range(merge_row, 8, merge_row + 1, 8, arr_tmp[8], fmt[8])
             merge_row += 2
         row += 2
         return row
@@ -430,6 +487,7 @@ class HweHandler:
         return tmp
 
 
+
 class ChiReporter:
     """Put chi-square analysis result into xlsx files."""
     def __init__(self, assoc_inst):
@@ -440,7 +498,7 @@ class ChiReporter:
         self.info_container = {}
 
     def report(self):
-        workbook = xlsxwriter.Workbook(os.path.join(self.reportdir, 'ChiScore.xlsx'))
+        workbook = xlsxwriter.Workbook(os.path.join(self.reportdir, 'ChiSquare.xlsx'))
         formater = Formater(workbook)
         sheet = workbook.add_worksheet('ALL')
         sheet.set_row(0, 30)
@@ -547,6 +605,116 @@ class ChiHandler:
         self.data.setdefault(test, {}).__setitem__('AFF', affgeno)
         self.data.setdefault(test, {}).__setitem__('UNAFF', unaffgeno)
         self.data.setdefault(test, {}).__setitem__('chi', chisq)
+        self.data.setdefault(test, {}).__setitem__('p', p)
+        if re.match(r'\d', p):
+            self.allp.append(float(p))
+
+
+class FisherReporter(ChiReporter):
+    def __init__(self, assoc_inst):
+        super().__init__(assoc_inst)
+
+    def report(self):
+        workbook = xlsxwriter.Workbook(os.path.join(self.reportdir, 'Fisher-test.xlsx'))
+        formater = Formater(workbook)
+        sheet = workbook.add_worksheet('ALL')
+        sheet.set_row(0, 30)
+        sheet_readme = workbook.add_worksheet('ReadMe')
+        readmefile = os.path.join(self.basepath, 'ReadMetxt/readme_fisher.txt')
+        print_readme(sheet_readme, readmefile, formater)
+
+        self.record_model_result()
+        self.record_assoc_result()
+
+        header = 'SNP,CHR,Major allele,Minor allele,Model,AFF(11|10|00),\
+                UNAFF(11|10|00),OR(95%CI),P-value,FDR_BH adjusted'.split(',')
+        row = 0
+        for i, j in enumerate(map(lambda s: s.strip(),header)):
+            sheet.write(row, i, j, formater.header)
+        row += 1
+
+        for snp in self.info_container:
+            handler = self.info_container.get(snp)
+            lines = handler.output()
+            for line in lines:
+                fmt = formater_type(line, [8, 9], formater)
+                for i, j in enumerate(line):
+                    sheet.write(row, i, j, fmt[i])
+                row += 1
+        workbook.close()
+        return self.info_container
+
+    def record_model_result(self):
+        modelfile = os.path.join(self.resultdir, 'fisher-test/model_fisher.model')
+        count = 0
+        with open(modelfile, 'rt') as fh:
+            for line in fh:
+                count += 1
+                if count == 1:
+                    continue
+                arr = line.split()
+                if arr[4] == 'TREND':
+                    continue
+                snp = arr[1]
+                if snp in self.info_container:
+                    handler = self.info_container.get(snp)
+                else:
+                    handler = FisherHandler(snp)
+                    self.info_container[snp] = handler
+                handler.Chr = arr[0]
+                handler.Minorallele = arr[2]
+                handler.Majorallele = arr[3]
+                handler.add_info(arr)
+
+    def record_assoc_result(self):
+        assocfile = os.path.join(self.resultdir, 'fisher-test/fisher.assoc.fisher')
+        adjustfile = os.path.join(self.resultdir, 'fisher-test/fisher.assoc.fisher.adjusted')
+        count = 0
+        with open(assocfile, 'rt') as fh:
+            for line in fh:
+                count += 1
+                if count == 1:
+                    continue
+                arr = line.split()
+                snp = arr[1]
+                if snp in self.info_container:
+                    handler = self.info_container.get(snp)
+                else:
+                    continue
+                handler.data['ALLELIC']['ORCI'] = '%s(%s-%s)' %(arr[8], arr[10], arr[11])
+
+        count = 0
+        with open(adjustfile, 'rt') as fh:
+            for line in fh:
+                count += 1
+                if count == 1:
+                    continue
+                arr = line.split()
+                snp = arr[1]
+                if snp in self.info_container:
+                    handler = self.info_container.get(snp)
+                else:
+                    continue
+                handler.data['ALLELIC']['FDR'] = arr[-2]
+
+
+class FisherHandler(ChiHandler):
+    def __init__(self, snp):
+        super().__init__(snp)
+
+    def output(self):
+        base_arr = [self.snp, self.Chr, self.Majorallele, self.Minorallele]
+        keys = ['AFF', 'UNAFF', 'ORCI', 'p', 'FDR']
+        codom = base_arr + ['Codominant'] + [self.data['GENO'].get(key, '') for key in keys]
+        dom = base_arr + ['Dominant'] + [self.data['DOM'].get(key, '') for key in keys]
+        rec = base_arr + ['Recessive'] + [self.data['REC'].get(key, '') for key in keys]
+        allele = base_arr + ['Allele'] + [self.data['ALLELIC'].get(key, '') for key in keys]
+        return (codom, dom, rec, allele)
+
+    def add_info(self, arr):
+        test, affgeno, unaffgeno, p = arr[4:]
+        self.data.setdefault(test, {}).__setitem__('AFF', affgeno)
+        self.data.setdefault(test, {}).__setitem__('UNAFF', unaffgeno)
         self.data.setdefault(test, {}).__setitem__('p', p)
         if re.match(r'\d', p):
             self.allp.append(float(p))

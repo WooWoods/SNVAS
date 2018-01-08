@@ -114,6 +114,9 @@ class Stratify:
         else:
             partition_info = self.info_tab[self.info_tab.iloc[:, strati_col].isin(combinate)]
             tmp_info = pd.concat([partition_info.iloc[:, strati_col], partition_info.iloc[:, 1: strati_col], partition_info.iloc[:, (strati_col + 1):]], axis=1)
+            combinate = list(combinate)
+            combinate.sort(reverse=True)
+
             tmp_info.iloc[:, 0].replace(combinate[0], 'case', inplace=True)
             tmp_info.iloc[:, 0].replace(combinate[1], 'control', inplace=True)
             # tmp_info.iloc[:, 0][tmp_info.iloc[:, strati_col] == combinate[0]] = 'case'

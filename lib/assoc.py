@@ -43,6 +43,7 @@ class AssocStudy:
         self.freqcc()
         self.annotation()
         self.chitest()
+        self.fisher_test()
         self.modelchi()
         self.logistic()
 
@@ -139,6 +140,12 @@ class AssocStudy:
         Options = namedtuple('Opts', 'filename outname covar pheno')
         options = Options(filename=filename, outname=outname, covar=None, pheno=None)
         return options
+
+    def fisher_test(self):
+        do_fisher = self.config.get('FISHER', None)
+        if do_fisher:
+            self.fishertest()
+            self.modelfisher()
 
     @genetic_models('--logistic', '', 'dominant', 'recessive', 'hethom')
     def logistic(self):

@@ -26,6 +26,7 @@ class BlockIdentifier:
     def block_go(self):
         LD_files = self.read_LDs()
         for f in LD_files:
+            print(f)
             self.dprime_reader(f)
         return self.putdown()
 
@@ -132,7 +133,7 @@ class BlockIdentifier:
                         # here means that we reach the last block and it's contained
                         # in the ahead one, so not hesitate to push the ahead block 
                         # and break.
-                        if mobile == count - 1:
+                        if mobile == count:
                             merged.append(ahead_block)
                             break
                     else:

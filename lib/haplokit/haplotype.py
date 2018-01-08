@@ -8,6 +8,7 @@
 import os
 import re
 import subprocess
+import random
 from copy import deepcopy
 
 import pandas as pd
@@ -244,14 +245,14 @@ class HapAssocAnalysis:
                     continue
                 result.update(freq)
                 res_wrapper[hap] = result
-                self.result_wrapper.append(res_wrapper)
                 if self.cov_num:
                     result = self.perform_LR(block, hap, ready_table, covar=True)
                     if result is None:
                         continue
                     result.update(freq)
                     cov_res_wrapper[hap] = result
-                    self.covar_result_wrapper.append(cov_res_wrapper)
+            self.result_wrapper.append(res_wrapper)
+            self.covar_result_wrapper.append(cov_res_wrapper)
         self.put_to_excel()
 
     def put_to_excel(self):
@@ -275,7 +276,7 @@ class HapAssocAnalysis:
             block = result.block
             snps = self.block_sites[block]
             Chr= self.chrinfo[snps[0]]
-            for hap in result:
+            for hap in result.data:
                 line = self.parse_result(block, Chr, ','.join(snps), hap, result[hap])
                 fmt = formater_type(line, [8], formater)
                 for n, v in enumerate(line):
@@ -321,7 +322,7 @@ class HapAssocAnalysis:
             sheet.write(row, 0, r, formater.normal)
             line = self.sampleshaps.loc[r]
             for n, v in enumerate(line):
-                sheet.write(row, n+1, v, formater.normal)
+                sheet.write(row, n+1, str(v), formater.normal)
             row += 1
 
     def hap_phase(self):
@@ -514,6 +515,9 @@ class HapResultWrapper(UserDict):
             return self.data[str(key)]
         except KeyError:
             return None
+
+    def __repr__(self):
+        return '%s\n%s\n' %(self.block, self.data)
 
 
 
