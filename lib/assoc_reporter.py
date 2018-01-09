@@ -131,11 +131,17 @@ class AllReport:
             if key == '00':
                 tmp_arr = arr[0:6] + ['-'] * 3
             elif key == '01':
-                tmplogit = [logit_handler.data.get('HET').get(k, '') for k in logitkeys]
-                tmp_arr = arr[0:6] + [orci_fmt.format(tmplogit[0], tmplogit[1], tmplogit[2]), tmplogit[3], tmplogit[4]]
+                try:
+                    tmplogit = [logit_handler.data.get('HET').get(k, '') for k in logitkeys]
+                    tmp_arr = arr[0:6] + [orci_fmt.format(tmplogit[0], tmplogit[1], tmplogit[2]), tmplogit[3], tmplogit[4]]
+                except AttributeError:
+                    tmp_arr = arr[0:6] + ['NA'] * 3
             else:
-                tmplogit = [logit_handler.data.get('HOM').get(k, '') for k in logitkeys]
-                tmp_arr = arr[0:6] + [orci_fmt.format(tmplogit[0], tmplogit[1], tmplogit[2]), tmplogit[3], tmplogit[4]]
+                try:
+                    tmplogit = [logit_handler.data.get('HOM').get(k, '') for k in logitkeys]
+                    tmp_arr = arr[0:6] + [orci_fmt.format(tmplogit[0], tmplogit[1], tmplogit[2]), tmplogit[3], tmplogit[4]]
+                except AttributeError:
+                    tmp_arr = arr[0:6] + ['NA'] * 3
 
             fmt = formater_type(tmp_arr, [7, 8], formater)
             for i, j in enumerate(tmp_arr):
@@ -145,7 +151,11 @@ class AllReport:
         merge_row += 3
 
         for model in ['dom', 'rec']:
-            tmplogit = [logit_handler.data.get(model.upper()).get(k, '') for k in logitkeys]
+            try:
+                tmplogit = [logit_handler.data.get(model.upper()).get(k, '') for k in logitkeys]
+            except AttributeError:
+                tmplogit = ['NA'] * 6
+
             for key in ['0', '1']:
                 arr = blockhandler.__dict__.get(model).get(key)
                 tmp_arr = arr[0:6] + [orci_fmt.format(tmplogit[0], tmplogit[1], tmplogit[2]), tmplogit[3], tmplogit[4]]
@@ -833,11 +843,26 @@ class LogitHandler:
     def output(self):
         base_arr = [self.snp, self.Chr, self.pos, self.Minorallele]
         keys = ['nmiss', 'OR', 'SE', 'L95', 'U95', 'stat', 'p', 'fdr']
-        dom = base_arr + ['Dominant'] + [self.data['DOM'].get(key, '') for key in keys]
-        rec = base_arr + ['Recessive'] + [self.data['REC'].get(key, '') for key in keys]
-        add = base_arr + ['Additive'] + [self.data['ADD'].get(key, '') for key in keys]
-        hom = base_arr + ['HOM'] + [self.data['HOM'].get(key, '') for key in keys]
-        het = base_arr + ['HET'] + [self.data['HET'].get(key, '') for key in keys]
+        try:
+            dom = base_arr + ['Dominant'] + [self.data['DOM'].get(key, '') for key in keys]
+        except KeyError:
+            dom = base_arr + ['Dominant'] + ['NA'] * 8
+        try:
+            rec = base_arr + ['Recessive'] + [self.data['REC'].get(key, '') for key in keys]
+        except KeyError:
+            rec = base_arr + ['Recessive'] + ['NA'] * 8
+        try:
+            add = base_arr + ['Additive'] + [self.data['ADD'].get(key, '') for key in keys]
+        except KeyError:
+            add = base_arr + ['Additive'] + ['NA'] * 8
+        try:
+            hom = base_arr + ['HOM'] + [self.data['HOM'].get(key, '') for key in keys]
+        except KeyError:
+            hom = base_arr + ['HOM'] + ['NA'] * 8
+        try:
+            het = base_arr + ['HET'] + [self.data['HET'].get(key, '') for key in keys]
+        except KeyError:
+            het = base_arr + ['HET'] + ['NA'] * 8
         return (dom, rec, add, hom, het)
 
 
